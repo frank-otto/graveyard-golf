@@ -110,6 +110,7 @@ body:not([data-state=intro]) #btnSkip, body:not([data-state=intro]) #btnTapSound
   .chip { padding: 5px 9px 6px; border-radius: 12px; } .chip b { font-size: 18px; } .chip.wide span { display: none; }
   #top { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); left: 10px; right: auto; }
   body[data-state=play] #top .pill:not(#btnQuit) { display: none; }
+  body:not([data-state=play]) #top { top: max(10px, env(safe-area-inset-top)); bottom: auto; right: 10px; left: auto; } /* menu/end panels sit at the bottom: keep DE / sound / quality reachable at the top */
   #duelBar { top: calc(max(8px, env(safe-area-inset-top)) + 54px); }
   #menu, #end { left: 50%; top: auto; bottom: max(10px, env(safe-area-inset-bottom)); transform: translate(-50%, 18px); width: calc(100vw - 20px); max-height: 66vh; padding: 18px 18px 14px; border-radius: 22px; }
   #menu.show, #end.show { transform: translate(-50%, 0); }
