@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Graveyard Golf – a cinematic 3D Halloween mini-golf game</title>
+<meta name="description" content="Nine haunted mini-golf holes through a foggy graveyard at night: swinging coffin lids, zombie hands, a spinning scarecrow, bats, a ghost, a crypt tunnel and a giant mausoleum. Real ball physics, a hot-seat duel, a kids mode – and a hole in one wakes the whole graveyard.">
+<meta name="theme-color" content="#05060f">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%9B%B3%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-state="intro">
+<canvas id="game" aria-label="Graveyard Golf game"></canvas>
+<div id="flash"></div>
+<div id="pops"></div>
+<div id="banner"></div>
+<div id="holecard"><small id="hcNum"></small><b id="hcName"></b><i id="hcPar"></i><em id="hcTip"></em></div>
+<div id="hud">
+  <div class="chip wide"><small data-t="holeL">Hole</small><b id="hHole">1/9</b><span id="hHoleN"></span></div>
+  <div class="chip"><small data-t="parL">Par</small><b id="hPar">2</b></div>
+  <div class="chip"><small data-t="strokesL">Strokes</small><b id="hStrokes">0</b></div>
+  <div class="chip gold"><small data-t="totalL">Total</small><b id="hTotal">E</b></div>
+</div>
+<div id="duelBar"><span id="dP1"></span><span id="dP2"></span></div>
+<div id="power"><div class="track"><i id="powerFill"></i></div><b id="powerTxt">0%</b></div>
+<div id="hint"></div>
+<div id="actions"><button id="btnView" class="pill" aria-label="Overview">🗺</button><button id="btnMull" class="pill" aria-label="Do-over">↶</button></div>
+<div id="top">
+  <button id="btnQuit" class="pill" aria-label="Finish">✕</button>
+  <button id="btnQ" class="pill">⚙</button>
+  <button id="btnSound" class="pill" aria-label="Sound">🔊</button>
+  <button id="btnLang" class="pill">DE</button>
+</div>
+<div id="toast"></div>
+<div id="opening"><div id="oTitle"><span class="w1">GRAVEYARD</span><span class="w2">GOLF</span></div><div id="oSub">7 days to Halloween 🎃</div></div>
+<button id="btnSkip" class="pill" data-t="skip">Skip ⏭</button>
+<button id="btnTapSound" class="pill" data-t="tapSound">🔊 Tap for sound</button>
+<section id="menu" class="panel">
+  <div class="kicker" data-t="countdown"></div>
+  <h1><span class="w1">GRAVEYARD</span><span class="w2">GOLF</span></h1>
+  <p class="sub" data-t="tagline"></p>
+  <button id="btnCampaign" class="big"><span data-t="campaign"></span><em id="bestCampaign"></em></button>
+  <button id="btnDuel" class="big alt"><span data-t="duel"></span></button>
+  <div class="lab" data-t="diffL"></div>
+  <div id="diff" role="group"><button data-d="easy" data-t="easy"></button><button data-d="medium" data-t="medium"></button><button data-d="hard" data-t="hard"></button></div>
+  <div class="row"><button id="btnKids" class="toggle" aria-pressed="false"><i></i><span data-t="kids"></span></button><button id="btnIntro" class="pill" data-t="replay"></button></div>
+  <p class="tip kidsTip" data-t="kidsInfo"></p>
+  <p class="tip keys" id="keysTip"></p>
+  <p class="tip credit" data-t="credit"></p>
+</section>
+<section id="scorecard" class="panel sc"><div class="kicker" data-t="scoreL"></div><h3 id="scTitle"></h3><div id="scRes" class="res"></div><div id="scTable" class="table"></div></section>
+<section id="end" class="panel">
+  <div class="kicker" id="eTitle"></div>
+  <div id="eScore" class="score">0</div>
+  <div id="eToPar" class="topar"></div>
+  <div id="eRank" class="rank"></div>
+  <div id="eBest" class="best"></div>
+  <div id="eStats" class="stats"></div>
+  <div id="eCard" class="table"></div>
+  <label class="name" id="eNameRow"><span data-t="nameL">Name on the card</span><input id="eName" maxlength="18" value="Player" autocomplete="off"></label>
+  <div class="row"><button id="btnCard" data-t="card"></button><button id="btnShare" data-t="share"></button></div>
+  <div class="row"><button id="btnAgain" class="big" data-t="again"></button><button id="btnMenu" data-t="menu"></button></div>
+</section>
+<script src="js/sounds-src.js"></script>
+<script src="js/game.bundle.js"></script>
+</body>
+</html>
