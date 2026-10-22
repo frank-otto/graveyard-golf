@@ -23,7 +23,7 @@ const eo = k => 1 - Math.pow(1 - clamp(k, 0, 1), 3), eio = k => { k = clamp(k, 0
 const browserLang = () => { try { return (navigator.languages && navigator.languages[0] || navigator.language || 'en').toLowerCase().startsWith('de') ? 'de' : 'en'; } catch (e) { return 'en'; } };
 // ---------------- rules ----------------
 const DIFF = { easy: { over: 5, mull: 3, guide: 1, k: .85 }, medium: { over: 4, mull: 1, guide: .4, k: 1 }, hard: { over: 3, mull: 0, guide: .14, k: 1.25 }, kids: { over: 99, mull: 99, guide: 1, k: .75, help: 7 } };
-const S = { state: 'intro', mode: 'campaign', lang: ls.get('gg-lang', '') || 'en', diff: ls.get('gg-diff', 'medium'), kids: ls.get('gg-kids', '0') === '1', q: ls.get('gg-q', ''), qUser: !!ls.get('gg-q', ''),
+const S = { state: 'intro', mode: 'campaign', lang: ls.get('gg-lang', '') || browserLang(), diff: ls.get('gg-diff', 'medium'), kids: ls.get('gg-kids', '0') === '1', q: ls.get('gg-q', ''), qUser: !!ls.get('gg-q', ''),
   name: ls.get('gg-name', 'Player') || 'Player', gt: 0, ts: 1, hi: 8, player: 0, sc: [[], []], strokes: 0, mulls: [0, 0], aces: [0, 0], tricks: [0, 0], birdies: [0, 0], phase: 'idle', aimAng: 0, aimPow: .5, aiming: false, kbAim: false, fovPunch: 0, vx: 0, vy: 0, obsOff: 0, view: 0, end: '', introT: 0, slow: 0, wakeT: null };
 if (!DIFF[S.diff] || S.diff === 'kids') S.diff = 'medium';
 if (!QUALITY[S.q]) { S.q = 'mid'; S.qUser = false; }
@@ -42,7 +42,7 @@ const W = createWorld(renderer, 13); const scene = W.scene; const C = createCour
 const camera = new THREE.PerspectiveCamera(50, 1, .05, 400);
 const F = createFX(scene, W.soft, W.smokeTex);
 let composer, bloom, fogPass, gradePass;
-function buildComposer() { if (composer) { composer.renderTarget1.dispose(); composer.renderTarget2.dispose(); }
+function buildComposer() { if (composer) { for (const p of composer.passes) { try { p.dispose && p.dispose(); } catch (e) {} } for (const rt of [composer.renderTarget1, composer.renderTarget2]) { if (rt.depthTexture) rt.depthTexture.dispose(); rt.dispose(); } } // dispose the old passes too (bloom mips, shader quads): a quality switch used to leak ~11 GPU textures
   const q = QUALITY[S.q]; const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: q.msaa || 0 }); rt.depthTexture = new THREE.DepthTexture(4, 4); rt.depthTexture.type = THREE.UnsignedIntType;
   composer = new EffectComposer(renderer, rt); composer.renderTarget2.depthTexture = new THREE.DepthTexture(4, 4); composer.renderTarget2.depthTexture.type = THREE.UnsignedIntType;
   composer.addPass(new RenderPass(scene, camera)); fogPass = new ShaderPass(fogShader()); composer.addPass(fogPass);
@@ -51,7 +51,7 @@ function applyQuality(qn, user) {
   S.q = qn; if (user) { S.qUser = true; ls.set('gg-q', qn); } const q = QUALITY[qn];
   renderer.shadowMap.enabled = q.shadows; W.key.castShadow = q.shadows; if (q.shadows) { W.key.shadow.mapSize.set(q.shadowSize, q.shadowSize); if (W.key.shadow.map) { W.key.shadow.map.dispose(); W.key.shadow.map = null; } }
   scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); });
-  buildComposer(); resize(); $('btnQ').textContent = '⚙ ' + t('q_' + qn); }
+  buildComposer(); resize(); $('btnQ').textContent = '⚙ ' + t('q_' + qn); if (typeof qLabel === 'function') qLabel(); }
 let VW = 1, VH = 1; const portrait = () => VW / VH < .85, wide = () => VW >= 820 && VW >= VH;
 function resize() { VW = window.innerWidth; VH = window.innerHeight; const dpr = Math.min(window.devicePixelRatio || 1, QUALITY[S.q].dpr);
   renderer.setPixelRatio(dpr); renderer.setSize(VW, VH, false); if (composer) { composer.setPixelRatio(dpr); composer.setSize(VW, VH); } camera.aspect = VW / VH; camera.updateProjectionMatrix(); }
@@ -89,8 +89,8 @@ const music = new Player();
 const capOf = H => H.par + D().over;
 function lampsFor(H) { const ps = W.posts.filter(p => p.hole === H.id); if (ps[0]) W.lampA.position.set(ps[0].x, 1.62, ps[0].z); if (ps[1]) W.lampB.position.set(ps[1].x, 1.62, ps[1].z); const [cx, cz] = toWorld(H, H.cup[0], H.cup[1]); W.cupLight.position.set(cx, H.h(H.cup[0], H.cup[1]) + 1.1, cz); W.cupLight.color.set('#5dff9a'); const [tx, tz] = toWorld(H, 0, 0); W.focus(tx + H.cup[0] * .5, tz, H.cup[1] * .55); }
 function resetRun() { clearTimers(); S.hi = 0; S.player = 0; S.sc = [[], []]; S.strokes = 0; S.aces = [0, 0]; S.tricks = [0, 0]; S.birdies = [0, 0]; S.mulls = [D().mull, D().mull]; S.phase = 'idle'; S.end = ''; S.newBest = false; S.ts = 1; S.slow = 0; S.view = 0; W.blood = 0; S.lastShot = null; S.wakeT = null; S.wake = null; slab.visible = false; W.handIM.count = 0; W.ghosts.forEach(g => g.g.visible = false); }
-function start(mode) { A.unlock(); resetRun(); S.mode = mode; S.state = 'play'; S.obsOff = 0; window.__banners = []; window.__pops = []; ['end', 'menu', 'scorecard'].forEach(k => $(k).classList.remove('show')); music.start('game', S.gt + .3); music.vol = .85; A.sfx.stinger();
-  beginHole(0); $('hint').textContent = t(isTouch ? 'hintT' : 'hint'); setTimer(3, () => $('hint').classList.add('show')); setTimer(12, () => $('hint').classList.remove('show')); setUI(); }
+function start(mode) { A.unlock(); resetRun(); S.mode = mode; S.state = 'play'; S.more = false; S.obsOff = 0; window.__banners = []; window.__pops = []; ['end', 'menu', 'scorecard'].forEach(k => $(k).classList.remove('show')); music.start('game', S.gt + .3); music.vol = .85; A.sfx.stinger();
+  beginHole(0); $('hint').textContent = t(isTouch ? 'hintT' : 'hint'); setTimer(2.2, () => $('hint').classList.add('show')); setTimer(9, () => $('hint').classList.remove('show')); setUI(); }
 function beginHole(i) { S.hi = i; const H = HOLE(); S.player = 0; lampsFor(H); S.flyT0 = S.gt; S.phase = 'fly'; placeBall(H.tee[0], H.tee[1]); S.strokes = 0; S.lastShot = null; S.view = 0; slab.visible = false; aimDefault();
   showHoleCard(H); A.sfx.holeStart(); if (H.id === 1) A.sfx.creak('gate'); setUI(); }
 function startTurn(p) { const H = HOLE(); S.player = p; placeBall(H.tee[0], H.tee[1]); S.strokes = 0; S.lastShot = null; S.phase = 'aim'; S.aimT0 = S.gt; aimDefault(); if (S.mode === 'duel') { banner(`${t(p ? 'p2' : 'p1')} · ${t('turn')}`); A.sfx.turn(); } setUI(); }
@@ -138,7 +138,7 @@ function endRun(why) { if (S.state !== 'play') return; S.state = 'end'; S.end = 
   $('eCard').innerHTML = cardTable(); $('eName').value = S.name; $('eNameRow').style.display = S.mode === 'duel' ? 'none' : ''; $('end').classList.add('show'); setUI(); A.sfx.win(); }
 const fmtPar = d => d === 0 ? 'E' : d > 0 ? `+${d}` : `−${-d}`;
 const rankOf = (d, n) => n < HOLES.length ? 6 : d <= -6 ? 0 : d <= -3 ? 1 : d <= 0 ? 2 : d <= 5 ? 3 : d <= 12 ? 4 : 5;
-function toMenu() { resetRun(); S.state = 'menu'; S.obsOff = 0; ['end', 'scorecard'].forEach(k => $(k).classList.remove('show')); $('menu').classList.add('show'); music.start('menu', S.gt + .4); music.vol = .8; S.hi = 8; ball = null; lampsFor(HOLES[8]); applyLang(); setUI(); }
+function toMenu() { resetRun(); S.state = 'menu'; S.more = false; S.obsOff = 0; ['end', 'scorecard'].forEach(k => $(k).classList.remove('show')); $('menu').classList.add('show'); music.start('menu', S.gt + .4); music.vol = .8; S.hi = 8; ball = null; lampsFor(HOLES[8]); applyLang(); setUI(); }
 
 // ---------------- THE GRAVEYARD WAKES (hole in one) ----------------
 const rings = []; function ring(at, col, big = 1, op = .7) { const m = new THREE.Mesh(new THREE.RingGeometry(.3, .42, 64), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .7, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.copy(at); m.position.y += .03; scene.add(m); m.material.opacity = op; rings.push({ m, t: 0, big, op }); }
@@ -212,7 +212,7 @@ function introStep() { const e = S.gt - S.introT0; S.introT = e; const H = HOLES
   return { pos, look: lk, fov }; }
 
 // ---------------- UI ----------------
-function setUI() { const st = S.state; document.body.dataset.state = st; document.body.dataset.mode = S.mode; document.body.dataset.kids = S.kids ? '1' : '0'; document.body.dataset.phase = S.phase;
+function setUI() { const st = S.state; document.body.dataset.state = st; const more = !!S.more && st === 'menu'; document.body.dataset.more = more ? '1' : '0'; $('more').classList.toggle('show', more); $('btnMore').setAttribute('aria-expanded', more); document.body.dataset.mode = S.mode; document.body.dataset.kids = S.kids ? '1' : '0'; document.body.dataset.phase = S.phase;
   const H = HOLE(); $('hHole').textContent = `${S.hi + 1}/${HOLES.length}`; $('hHoleN').textContent = t('h' + H.id); $('hPar').textContent = H.par; $('hStrokes').textContent = S.strokes;
   const row = S.sc[S.player], tot = row.reduce((a, v) => a + (v || 0), 0), pd = HOLES.reduce((a, h, i) => a + (row[i] ? h.par : 0), 0); $('hTotal').textContent = row.some(v => v) ? fmtPar(tot - pd) : 'E';
   $('dP1').textContent = `${t('p1')} · ${S.sc[0].reduce((a, v) => a + (v || 0), 0)}`; $('dP2').textContent = `${t('p2')} · ${S.sc[1].reduce((a, v) => a + (v || 0), 0)}`; $('dP1').classList.toggle('on', S.player === 0); $('dP2').classList.toggle('on', S.player === 1);
@@ -225,28 +225,29 @@ function cardTable() { const rows = S.mode === 'duel' ? [0, 1] : [0]; const cell
 function renderScorecard(show) { $('scTitle').textContent = `${t('holeL')} ${S.hi + 1} · ${t('h' + (S.hi + 1))}`; const v = S.sc[S.player][S.hi]; $('scRes').textContent = v ? (S.mode === 'duel' ? t(S.player ? 'p2' : 'p1') + ': ' : '') + (v > capOf(HOLE()) ? t('picked') : t('s_' + scoreName(v, HOLE().par))) : ''; $('scTable').innerHTML = cardTable(); if (show) $('scorecard').classList.add('show'); }
 function hideScorecard() { $('scorecard').classList.remove('show'); }
 function applyLang() { document.documentElement.lang = S.lang; document.querySelectorAll('[data-t]').forEach(el => el.textContent = t(el.dataset.t)); $('btnLang').textContent = S.lang === 'en' ? 'DE' : 'EN';
-  $('keysTip').textContent = t(isTouch ? 'keysHintT' : 'keysHint'); $('oSub').textContent = t('countdown');
+  $('keysTip').textContent = t(isTouch ? 'keysHintT' : 'keysHint'); $('btnSkip').textContent = t(isTouch ? 'tapPlay' : 'clickPlay'); $('oSub').textContent = t('countdown');
   const kidsOn = S.state === 'intro' ? S.kidsSave ?? S.kids : S.kids, diffOn = S.state === 'intro' ? S.diffSave ?? S.diff : S.diff;
   $('btnKids').classList.toggle('on', kidsOn); $('btnKids').setAttribute('aria-pressed', kidsOn); document.querySelectorAll('#diff button').forEach(b => b.classList.toggle('on', b.dataset.d === diffOn)); $('diff').classList.toggle('off', kidsOn);
-  const b = +ls.get(bestKey(), 0); $('bestCampaign').textContent = b ? `🏆 ${t('best')} (${S.kids ? t('kidsT') : t(S.diff)}): ${b} · ${fmtPar(b - PAR_TOTAL)}` : t('noBest');
-  $('btnSound').textContent = A.isMuted() ? '🔇' : '🔊'; $('btnQ').textContent = '⚙ ' + t('q_' + S.q); setUI(); }
+  const b = +ls.get(bestKey(), 0); $('playL').textContent = `${t('campaignT')} · ${kidsOn ? t('kidsT') : t(diffOn)}${b ? ` · 🏆 ${b} (${fmtPar(b - PAR_TOTAL)})` : ''}`;
+  $('btnSound').textContent = A.isMuted() ? '🔇' : '🔊'; $('btnQ').textContent = '⚙ ' + t('q_' + S.q); qLabel(); setUI(); }
+function qLabel() { const el = $('btnQ2'); if (el) el.textContent = `⚙ ${t('q_' + S.q)}${S.qUser ? '' : ' · ' + t('auto')}`; }
 let popQ = 0; const _sp = new THREE.Vector3();
 function popAt(txt, col, big, at) { if (S.state === 'intro') return; (window.__pops = window.__pops || []).push(txt); let x = 0, y = 0; if (at) { _sp.copy(at).project(camera); if (_sp.z < 1) { x = clamp(_sp.x * .5 * VW, -VW * .34, VW * .34); y = clamp(-_sp.y * .5 * VH, -VH * .3, VH * .2) - 50; } }
   const now = performance.now(), delay = Math.max(0, popQ - now); popQ = Math.max(now, popQ) + 260;
   setTimeout(() => { const el = document.createElement('div'); el.className = 'pop'; el.textContent = txt; el.style.color = col; el.style.left = x + 'px'; el.style.top = (y + VH * .06) + 'px'; el.style.fontSize = (27 * big * (VW < 600 ? .8 : 1)) + 'px'; $('pops').appendChild(el); setTimeout(() => el.remove(), 1500); }, window.__ggManual ? 0 : delay); }
 function banner(s) { (window.__banners = window.__banners || []).push(s); const el = $('banner'); el.textContent = ''; for (const part of String(s).split(/(\p{Extended_Pictographic}\uFE0F?)/u)) { if (!part) continue; if (/\p{Extended_Pictographic}/u.test(part)) { const sp = document.createElement('span'); sp.className = 'emo'; sp.textContent = part; el.appendChild(sp); } else el.appendChild(document.createTextNode(part)); } el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
-function toast(s) { const el = $('toast'); el.textContent = s; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2500); }
+function toast(s) { if (S.state !== 'play') return; const el = $('toast'); el.textContent = s; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2500); }
 function flashScreen(k) { const el = $('flash'); el.style.transition = 'none'; el.style.opacity = Math.min(.3, k); void el.offsetWidth; el.style.transition = 'opacity .8s ease-out'; el.style.opacity = 0; }
 function pan(x) { return clamp(x / 6, -.8, .8); }
 function putterSwing() { S.swingT = S.gt; }
 
 // ---------------- input: pull back and release ----------------
-let isTouch = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })(), drag = null;
+let isTouch = (() => { try { return matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0; } catch (e) { return false; } })(), drag = null;
 const _r = new THREE.Vector3(), _f = new THREE.Vector3();
 function showPow() { $('powerFill').style.transform = `scaleX(${S.aimPow.toFixed(3)})`; $('powerTxt').textContent = Math.round(S.aimPow * 100) + '%'; $('power').classList.add('show'); }
 function aimFromDrag(x, y) { const sc = Math.min(VW, VH) * .38; const dx = (x - drag.x) / sc, dy = (y - drag.y) / sc; const L = Math.hypot(dx, dy); S.aimPow = clamp(L, 0, 1); S.dragAmt = L;
   if (L > .03) { const wx = -(drag.rx * dx - drag.fx * dy), wz = -(drag.rz * dx - drag.fz * dy); S.aimAng = Math.atan2(wx, -wz); } showPow(); } // pull back: the shot goes the opposite way of the drag
-function unlockAudio() { const was = A.state(); A.unlock(); setTimeout(audioBadge, 60); if (S.state === 'intro' && was !== 'running' && S.introT < 2 && !window.__ggManual) setTimeout(() => { if (A.state() === 'running' && S.state === 'intro') startIntro(); }, 80); }
+function unlockAudio() { A.unlock(); setTimeout(audioBadge, 60); }
 function audioBadge() { document.body.dataset.audio = A.state() === 'running' ? 'on' : 'locked'; }
 canvas.addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && !isTouch) { isTouch = true; applyLang(); } unlockAudio(); e.preventDefault();
   if (S.state === 'play' && (S.phase === 'ace' || S.phase === 'fly')) { skipCine(); return; }
@@ -257,19 +258,21 @@ function endDrag(e) { if (!drag || (e && e.pointerId !== drag.id)) return; if (e
 canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', () => { drag = null; S.aiming = false; $('power').classList.remove('show'); });
 const keys = {};
 window.addEventListener('keydown', e => { if (e.target && e.target.tagName === 'INPUT') return; unlockAudio(); const k = e.code; keys[k] = true;
-  if (S.state === 'intro' && (k === 'Escape' || k === 'Enter' || k === 'Space')) { e.preventDefault(); endIntro(); return; }
+  if (S.state === 'intro' && (k === 'Enter' || k === 'Space')) { e.preventDefault(); playNow(); return; }
+  if (S.state === 'intro' && k === 'Escape') { e.preventDefault(); endIntro(); return; }
+  if (S.state === 'menu' && S.more && k === 'Escape') { S.more = false; setUI(); return; }
   if (S.state === 'play' && (k === 'Space' || k === 'Enter') && !e.repeat) { e.preventDefault(); if (S.phase === 'ace' || S.phase === 'fly') skipCine(); else if (canShoot()) shoot(); return; }
   if (S.state === 'play' && /^Arrow|^Key[AD]$/.test(k)) { e.preventDefault(); S.kbAim = true; }
   if (S.state === 'play' && k === 'KeyV') toggleView(); if (S.state === 'play' && k === 'KeyM') mulligan();
   if (k === 'Escape') { if (S.state === 'play') endRun('quit'); else if (S.state === 'end') toMenu(); return; }
-  if (S.state === 'menu' && k === 'Enter') start('campaign'); });
+  if (S.state === 'menu' && !S.more && k === 'Enter') start('campaign'); });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
 function keyAim(dt) { if (S.state !== 'play' || S.phase !== 'aim') return; const f = keys.ShiftLeft || keys.ShiftRight ? .25 : 1; const a = (keys.ArrowLeft || keys.KeyA ? -1 : 0) + (keys.ArrowRight || keys.KeyD ? 1 : 0), p = (keys.ArrowUp || keys.KeyW ? 1 : 0) + (keys.ArrowDown || keys.KeyS ? -1 : 0);
   if (a) S.aimAng += a * dt * .8 * f; if (p) S.aimPow = clamp(S.aimPow + p * dt * .4 * f, .02, 1); if (a || p) showPow(); }
 function skipCine() { if (S.phase === 'fly') { S.flyT0 = S.gt - 9; return; } if (S.phase === 'ace' && S.wakeT != null && S.gt - S.wakeT > .8) { clearTimers(); S.wakeT = S.gt - 6.6; updateWake(0); holeDone(); } }
 function toggleView() { if (S.phase !== 'aim') return; S.view = 1 - S.view; A.sfx.ui(); }
 function mulligan() { if (!(S.state === 'play' && S.phase === 'aim' && S.lastShot && (S.kids || S.mulls[S.player] > 0))) return; if (!S.kids) S.mulls[S.player]--; const L = S.lastShot; placeBall(L.x, L.z); S.strokes = L.strokes; S.lastShot = null; A.sfx.mulligan(); popAt(t('mullDone'), '#c8b0ff', 1, null); aimDefault(); setUI(); }
-$('btnCampaign').onclick = () => start('campaign'); $('btnDuel').onclick = () => start('duel');
+$('btnPlay').onclick = () => start('campaign'); $('btnDuel').onclick = () => start('duel');
 $('btnAgain').onclick = () => start(S.mode); $('btnMenu').onclick = () => { A.sfx.ui(); toMenu(); };
 $('btnQuit').onclick = () => { if (S.state === 'play') endRun('quit'); else if (S.state === 'end') toMenu(); };
 $('btnCard').onclick = () => saveCard(false); $('btnShare').onclick = () => saveCard(true);
@@ -279,8 +282,16 @@ $('btnKids').onclick = () => { S.kids = !S.kids; ls.set('gg-kids', S.kids ? '1' 
 $('btnSound').onclick = () => { A.unlock(); A.setMuted(!A.isMuted()); applyLang(); };
 $('btnQ').onclick = () => { const o = ['low', 'mid', 'high', 'ultra']; applyQuality(o[(o.indexOf(S.q) + 1) % 4], true); };
 $('btnView').onclick = () => toggleView(); $('btnMull').onclick = () => mulligan();
-$('btnSkip').onclick = e => { e.stopPropagation(); A.unlock(); endIntro(); }; $('btnTapSound').onclick = e => { e.stopPropagation(); A.unlock(); setTimeout(() => { audioBadge(); if (A.state() === 'running' && S.state === 'intro') startIntro(); }, 80); };
-$('btnIntro').onclick = () => { A.unlock(); startIntro(); };
+// ---- ONE TAP TO PLAY: the first tap/click anywhere on the opening goes straight into hole 1 (sound unlocks on that same tap) ----
+let eatClick = 0;
+function playNow() { if (S.state !== 'intro') return; A.unlock(); setTimeout(audioBadge, 60); endIntro(); start('campaign'); }
+function introTap(e) { if (S.state !== 'intro') return; if (e.pointerType === 'touch' && !isTouch) { isTouch = true; applyLang(); } eatClick = performance.now() + 450; playNow(); }
+window.addEventListener('pointerup', introTap);
+window.addEventListener('click', e => { if (performance.now() < eatClick) { e.stopPropagation(); e.preventDefault(); eatClick = 0; return; } introTap(e); }, true); // the same tap must not also hit a button
+for (const ev of ['touchend', 'click', 'keydown']) window.addEventListener(ev, () => A.unlock(), { capture: true, passive: true }); // iOS: resume audio inside a real user gesture
+$('btnMore').onclick = () => { S.more = true; A.unlock(); A.sfx.ui(); setUI(); }; $('btnMoreX').onclick = $('moreBg').onclick = () => { S.more = false; A.sfx.ui(); setUI(); };
+$('btnQ2').onclick = () => { $('btnQ').onclick(); applyLang(); };
+$('btnIntro').onclick = () => { A.unlock(); S.more = false; startIntro(); };
 $('eName').addEventListener('keydown', e => e.stopPropagation());
 window.addEventListener('resize', resize);
 
